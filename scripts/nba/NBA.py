@@ -4,12 +4,6 @@
 # In[1]:
 
 
-get_ipython().system('pip install requests')
-
-
-# In[179]:
-
-
 import requests
 import pandas as pd
 import lxml.html as LH
@@ -19,7 +13,7 @@ import time
 from google.cloud import bigquery
 
 
-# In[180]:
+# In[48]:
 
 
 class NBA:
@@ -31,10 +25,10 @@ class NBA:
         self.game_date = game_date
         
         if game_set == {}:
-            game_set = set(self.get_games(self.game_date)['gameId'])
+            game_set = set(self.get_games(self.game_date))
         self.game_set = game_set
         
-        self.run_proc()
+        self.games, self.arenas, self.bs_trad, self.bs_adv, self.bs_misc, self.bs_score, self.bs_usage, self.bs_four, self.bs_track, self.bs_hustle, self.bs_def, self.bs_match, self.pbp = self.run_proc()
 
     def clean_cols(self, col_name):
         new_col_name = col_name.split('.')[-1]
@@ -58,13 +52,16 @@ class NBA:
         return df
 
     def get_games(self, game_date):
-        url = "https://www.nba.com"
+        url = f"https://www.nba.com/games?date={game_date}"
 
-        df = self.get_req(url)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0'}
 
-        games_slides = pd.DataFrame(df['props.pageProps.rollingschedule'][0])
+        html_content = requests.get(url, headers = headers).text
+        tables = LH.fromstring(html_content)
+
+        table_json = tables.xpath('//a[contains(@class, "GameCard_gcm__SKtfh")]')
         
-        games_list = pd.json_normalize(games_slides[games_slides['gameDate'] == game_date].reset_index(drop=True)['games'][0])
+        games_list = [i.attrib['href'].split('-')[-1] for i in table_json]
         
         return games_list
         
@@ -77,7 +74,7 @@ class NBA:
         html_content = requests.get(url, headers = headers).text
         tables = LH.fromstring(html_content)
 
-        table_json = tables.xpath('/html/body/script[1]')[0].text
+        table_json = tables.xpath('//script[@id="__NEXT_DATA__"]')[0].text
 
         json_object = json.loads(table_json)
 
@@ -131,7 +128,7 @@ class NBA:
 
         full_game.columns = list(map(self.clean_cols, full_game.columns))
 
-        print(f"{game_id} - {bs_type}")
+        # print(f"{game_id} - {bs_type}")
 
         return full_game
 
@@ -155,8 +152,6 @@ class NBA:
         job_config.write_disposition = bigquery.job.WriteDisposition.WRITE_APPEND
         # The source format defaults to CSV, so the line below is optional.
         job_config.source_format = bigquery.SourceFormat.CSV
-
-        data['dt'] = self.get_date()
 
         project = client.project
         dataset_id = bigquery.DatasetReference(project, 'nba')
@@ -233,9 +228,11 @@ class NBA:
                 complete = 1
             except:
                 test += 1
+                
+        return games, arenas, bs_trad, bs_adv, bs_misc, bs_score, bs_usage, bs_four, bs_track, bs_hustle, bs_def, bs_match, pbp
 
 
-# In[181]:
+# In[182]:
 
 
 nba_test = NBA()
@@ -244,17 +241,11 @@ nba_test = NBA()
 # In[174]:
 
 
-nba_test = NBA(game_set = {'0022201073'})
+# nba_test = NBA(game_set = {'0022201073'})
 
 
-# In[176]:
+# In[49]:
 
 
-nba_test.game_details('0022201073')[0]
-
-
-# In[ ]:
-
-
-
+# nba_test_2 = NBA(game_date = '1974-02-01')
 
