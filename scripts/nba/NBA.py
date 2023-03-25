@@ -30,6 +30,8 @@ class NBA:
         
         self.games, self.arenas, self.bs_trad, self.bs_adv, self.bs_misc, self.bs_score, self.bs_usage, self.bs_four, self.bs_track, self.bs_hustle, self.bs_def, self.bs_match, self.pbp = self.run_proc()
 
+        # self.load_tables()
+
     def clean_cols(self, col_name):
         new_col_name = col_name.split('.')[-1]
 
@@ -85,12 +87,11 @@ class NBA:
                       'props.pageProps.game.homeTeam.teamCity', 'props.pageProps.game.homeTeam.teamTricode',
                       'props.pageProps.game.awayTeam.teamId', 'props.pageProps.game.awayTeam.teamName', 
                       'props.pageProps.game.awayTeam.teamCity', 'props.pageProps.game.awayTeam.teamTricode']]
-        df_game.columns = ['gameId', 'period', 'gameEt', 'attendance', 'homeTeamId', 'homeTeamName', 'homeTeamCity', 
-                           'homeTeamTricode','awayTeamId', 'awayTeamName', 'awayTeamCity', 'awayTeamTricode']
+        df_game.columns = list(map(self.clean_cols, df_game.columns))
 
         df_arena = df[['props.pageProps.game.gameId', 'props.pageProps.game.arena.arenaId', 'props.pageProps.game.arena.arenaName', 
                        'props.pageProps.game.arena.arenaCity', 'props.pageProps.game.arena.arenaState', 'props.pageProps.game.arena.arenaCountry']]
-        df_arena.columns = ['gameId', 'arenaId', 'arenaName', 'arenaCity', 'arenaState', 'arenaCountry']        
+        df_arena.columns = list(map(self.clean_cols, df_arena.columns))     
 
         return df_game, df_arena
 
@@ -196,25 +197,28 @@ class NBA:
             bs_match = pd.concat([bs_match, self.box_score(game, 'matchups')])
 
             pbp = pd.concat([pbp, self.play_by_play(game)])
+ 
+        return games, arenas, bs_trad, bs_adv, bs_misc, bs_score, bs_usage, bs_four, bs_track, bs_hustle, bs_def, bs_match, pbp
 
-        self.load_data(games, 'game_details')
-        self.load_data(arenas, 'game_arenas')
-        self.load_data(bs_trad, 'boxscore_trad')
-        self.load_data(bs_adv, 'boxscore_adv')
-        self.load_data(bs_misc, 'boxscore_misc')
-        self.load_data(bs_score, 'boxscore_scoring')
-        self.load_data(bs_usage, 'boxscore_usage')
-        self.load_data(bs_four, 'boxscore_fourfac')
-        self.load_data(bs_track, 'boxscore_tracking')
-        self.load_data(bs_hustle, 'boxscore_hustle')
-        self.load_data(pbp, 'playbyplay')
+    def load_tables(self):
+        self.load_data(self.games, 'game_details')
+        self.load_data(self.arenas, 'game_arenas')
+        self.load_data(self.bs_trad, 'boxscore_trad')
+        self.load_data(self.bs_adv, 'boxscore_adv')
+        self.load_data(self.bs_misc, 'boxscore_misc')
+        self.load_data(self.bs_score, 'boxscore_scoring')
+        self.load_data(self.bs_usage, 'boxscore_usage')
+        self.load_data(self.bs_four, 'boxscore_fourfac')
+        self.load_data(self.bs_track, 'boxscore_tracking')
+        self.load_data(self.bs_hustle, 'boxscore_hustle')
+        self.load_data(self.pbp, 'playbyplay')
 
         test = 0
         complete = 0
 
         while (complete == 0) & (test < 3):
             try:
-                self.load_data(bs_def, 'boxscore_defense')
+                self.load_data(self.bs_def, 'boxscore_defense')
                 complete = 1
             except:
                 test += 1    
@@ -224,12 +228,11 @@ class NBA:
 
         while (complete == 0) & (test < 3):
             try:
-                self.load_data(bs_match, 'boxscore_matchup')
+                self.load_data(self.bs_match, 'boxscore_matchup')
                 complete = 1
             except:
                 test += 1
                 
-        return games, arenas, bs_trad, bs_adv, bs_misc, bs_score, bs_usage, bs_four, bs_track, bs_hustle, bs_def, bs_match, pbp
 
 
 # In[182]:
