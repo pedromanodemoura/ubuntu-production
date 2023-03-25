@@ -87,8 +87,9 @@ class NBA:
                       'props.pageProps.game.homeTeam.teamCity', 'props.pageProps.game.homeTeam.teamTricode',
                       'props.pageProps.game.awayTeam.teamId', 'props.pageProps.game.awayTeam.teamName', 
                       'props.pageProps.game.awayTeam.teamCity', 'props.pageProps.game.awayTeam.teamTricode']]
-        df_game.columns = list(map(self.clean_cols, df_game.columns))
-
+        df_game.columns = ['gameId', 'period', 'gameEt', 'attendance', 'homeTeamId', 'homeTeamName', 'homeTeamCity', 
+                           'homeTeamTricode','awayTeamId', 'awayTeamName', 'awayTeamCity', 'awayTeamTricode']
+        
         df_arena = df[['props.pageProps.game.gameId', 'props.pageProps.game.arena.arenaId', 'props.pageProps.game.arena.arenaName', 
                        'props.pageProps.game.arena.arenaCity', 'props.pageProps.game.arena.arenaState', 'props.pageProps.game.arena.arenaCountry']]
         df_arena.columns = list(map(self.clean_cols, df_arena.columns))     
@@ -252,3 +253,10 @@ nba_test = NBA()
 
 # nba_test_2 = NBA(game_date = '1974-02-01')
 
+
+# In[6]:
+
+
+games_df = nba_test.games
+
+# %%
