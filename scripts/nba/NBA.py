@@ -13,7 +13,7 @@ import time
 from google.cloud import bigquery
 
 
-# In[48]:
+# In[2]:
 
 
 class NBA:
@@ -235,19 +235,19 @@ class NBA:
                 
 
 
-# In[182]:
+# In[3]:
 
 
 nba_test = NBA()
 
 
-# In[174]:
+# In[4]:
 
 
 # nba_test = NBA(game_set = {'0022201073'})
 
 
-# In[49]:
+# In[5]:
 
 
 # nba_test_2 = NBA(game_date = '1974-02-01')
