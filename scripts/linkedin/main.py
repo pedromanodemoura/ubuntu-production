@@ -19,7 +19,7 @@ class LinkedIn:
 
         # self.load_data(self.linkedin_df, 'jobs_details')
 
-    def clean_cols(col_name):
+    def clean_cols(self, col_name):
         new_col_name = col_name.lower().replace(' ', '_')
         
         return new_col_name
@@ -163,7 +163,10 @@ class LinkedIn:
 # In[2]:
 
 linkedin_df = LinkedIn()
+### Description not being pulled
 
 # In[3]:
 linkedin_df.linkedin_df
 
+
+# %%
