@@ -55,6 +55,8 @@ class IMDb:
         
         df = pd.json_normalize(response.json()['results'], max_level=0)
 
+        df['dt'] = self.yesterday
+
         return df
 
     def load_data(self, data, table):
@@ -64,7 +66,7 @@ class IMDb:
         job_config.write_disposition = bigquery.job.WriteDisposition.WRITE_APPEND
         # The source format defaults to CSV, so the line below is optional.
         job_config.source_format = bigquery.SourceFormat.CSV
-
+        
         project = client.project
         dataset_id = bigquery.DatasetReference(project, 'movies')
         table_id = dataset_id.table(table)
