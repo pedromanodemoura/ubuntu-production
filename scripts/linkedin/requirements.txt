@@ -5,3 +5,4 @@ google-cloud-bigquery
 datetime
 requests
 tqdm
+beautifulsoup4
