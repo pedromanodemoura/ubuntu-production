@@ -10,8 +10,7 @@ print(projects)
 
 # In[2]:
 for project in projects:
-    if project == 'imdb':
-        if os.name == 'nt':
-            os.system(f"cd {project} && env\\Scripts\\activate && python run_windows.py")
-        elif os.name == 'posix':
-            os.system(f"cd {project} && env\\bin\\activate && python run_ubuntu.py")
+    if os.name == 'nt':
+        os.system(f"cd {project} && env\\Scripts\\activate && python run_windows.py")
+    elif os.name == 'posix':
+        os.system(f"cd {project} && env\\bin\\activate && python run_ubuntu.py")
