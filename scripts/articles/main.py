@@ -24,8 +24,11 @@ class Articles(ABC):
         pass
 
     # @abstractmethod
-    def get_soup(self, url):
-        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36"})
+    def get_soup(self, url, type = 'get'):
+        if type == 'get':
+            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36"})
+        else:
+            r = requests.post(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36"})
 
         try:
             soup = r.json()
@@ -34,6 +37,34 @@ class Articles(ABC):
 
         return soup
 
+    def get_medium_soup(self, page):
+        url = 'https://medium.com/_/graphql'
+
+        headers = {
+            'origin': 'https://medium.com',
+            'referer': 'https://medium.com/',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+            'ot-tracer-spanid': '24330eb165f5d5c2',
+            'ot-tracer-traceid': '607cd535383d11a6',
+            'cookie': '_ga=GA1.2.1278478269.1631213857; __stripe_mid=db0731a9-e516-4003-a6ea-6659ac3415bc9aaa5a; nonce=hOcPGgoz; uid=846c46eb2386; sid=1:P4kJ8o6RXyMcpcvA/puobZ5mtCr8YT2UBcwSnplSZPOQva97REaYIbAdcE7flokl; lightstep_guid/medium-web=cf772ae8aea36f89; lightstep_session_id=e6fa630d0ba01a87; sz=1903; pr=1; tz=300; __cfruid=cb1a3237d7beb15d4bd4e19fff69fa2977a45875-1677681887; xsrf=715b337343e4; _gid=GA1.2.420747897.1677874872; _dd_s=rum=0&expire=1677878355669'
+        }  
+
+        with open('medium_query.txt') as t:
+            query = t.read()
+
+        variables = {"forceRank":False,
+                    "paging":{
+                        "limit":25,
+                        "to": f"{page*25}"
+                    }
+                }
+
+        r = requests.request("POST", url, headers=headers, json={'query': query, "variables": variables})
+
+        soup = r.json()
+
+        return soup
+    
     @abstractmethod
     def get_url(self):
         pass
@@ -162,16 +193,126 @@ class freeCodeCamp(Articles):
 
         return article
 
-# class devto(Articles):
-# class RealPython(Articles):
-# class Medium(Articles):
-# class DataScienceCentral(Articles):
+class RealPython(Articles):
+    def __init__(self, page):
+        # super().__init__("Real Python")
+        self.page = page
+        self.url = self.get_url()
+        self.soup = super().get_soup(self.url)
+        self.article = self.get_df()
+
+    def get_url(self):
+        if self.page >= 1:
+            url = f'https://realpython.com/search/api/v2/?kind=article&order=newest&continue_after={(self.page-1)*20}'
+        else:
+            raise Exception('Page number must be above 0')
+        
+        return url
+    
+    def get_df(self):
+        articles = pd.json_normalize(self.soup['results'])
+
+        article = articles[['title', 'url', 'description', 'pub_date']]
+        article.columns = ['title', 'link', 'summary', 'pub_date']
+        article['link'] = 'https://realpython.com' + article['link']
+        article['pub_date'] = [datetime.datetime.strptime(i[:-6], "%Y-%m-%dT%H:%M:%S").date() if i != None else i for i in article['pub_date']]
+        article['website'] = 'Real Python'
+
+        return article
+
+class devto(Articles):
+    def __init__(self, page):
+        # super().__init__("dev.to")
+        self.page = page
+        self.url = self.get_url()
+        self.soup = super().get_soup(self.url)
+        self.article = self.get_df()
+
+    def get_url(self):
+        if self.page >= 1:
+            url = f'https://dev.to/feed?page={self.page}'
+        else:
+            raise Exception('Page number must be above 0')
+        
+        return url
+    
+    def get_df(self):        
+        article = pd.DataFrame()
+
+        article['title'] = [i.text for i in self.soup.select('title')[1::]]
+        article['link'] = [i.text for i in self.soup.select('guid')]
+        article['author'] = [i.find_next_sibling().text for i in self.soup.select('title')[1::]]
+        article['summary'] = [i.text for i in self.soup.select('description')[1::]]
+        article['pub_date'] = [datetime.datetime.strptime(i.text[:25], '%a, %d %b %Y %H:%M:%S') for i in self.soup.select('pubdate')]
+        article['website'] = 'dev.to'
+
+        return article
+    
+class Medium(Articles):
+    def __init__(self, page):
+        # super().__init__("Medium")
+        self.soup = super().get_medium_soup(page)
+        self.article = self.get_df()
+
+    def get_url(self):
+        if self.page >= 1:
+            url = f'https://dev.to/feed?page={self.page}'
+        else:
+            raise Exception('Page number must be above 0')
+        
+        return url
+    
+    def get_df(self):  
+        articles = pd.json_normalize(self.soup['data']['webRecommendedFeed']['items'])
+
+        article = pd.DataFrame()
+
+        article['title'] = articles['post.title']
+        article['link'] = articles['post.mediumUrl']
+        article['summary'] = articles['post.extendedPreviewContent.subtitle']
+        article['author'] = articles['post.creator.name']
+        article['pub_date'] = [datetime.datetime.fromtimestamp(i/1000).date() for i in articles['post.firstPublishedAt']]
+        article['website'] = 'Medium'
+
+        return article
+
+""" 
+class DataScienceCentral(Articles):
+    def __init__(self, page):
+        # super().__init__("freeCodeCamp")
+        self.page = page
+        self.url = self.get_url()
+        self.soup = super().get_soup(self.url, 'post')
+        self.article = self.get_df()
+
+    def get_url(self):
+        if self.page >= 1:
+            url = f'https://www.datasciencecentral.com/wp-json/nv/v1/posts/page/{self.page}/en_US'
+        else:
+            raise Exception('Page number must be above 0')
+        
+        return url
+    
+    def get_df(self):
+        article = pd.DataFrame()
+
+        article['title'] = [i.text for i in self.soup.select("h2")]
+        article['link'] = [i.select("a")[0]['href'][2:-4].replace('\\/', '/') for i in self.soup.select("h2")]
+        article['author'] = [i.select('.meta-item')[0].text.strip() if len(i.select('.meta-item')) > 0 else "No Author" for i in self.soup.select('.post-card-meta')]
+        article['pub_date'] = [datetime.datetime.strptime(i.select('time')[0]['datetime'][:24], '%a %b %d %Y %H:%M:%S') for i in self.soup.select('.post-card-meta')]
+        article['website'] = 'freeCodeCamp'
+
+        return article 
+"""
 
 # In[6]:
 
 sf_test = StitchFix(1)
 av_test = AnalyticsVidhya(1)
+cp_test = CleverProgrammer(1)
 fcc_test = freeCodeCamp(1)
+rp_test = RealPython(1)
+dt_test = devto(1)
 # %%
 
 sf_test.article.head()
@@ -180,7 +321,15 @@ sf_test.article.head()
 av_test.article.head()
 
 # %%
+cp_test.article.head()
+
+# %%
 fcc_test.article.head()
 
+# %%
+rp_test.article.head()
+
+# %%
+dt_test.article.head()
 
 # %%
