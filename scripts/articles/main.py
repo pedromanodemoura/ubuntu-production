@@ -3,6 +3,8 @@
 
 # In[7]:
 
+import warnings
+warnings.filterwarnings("ignore")
 
 import requests
 import math
@@ -19,51 +21,35 @@ from abc import ABC, abstractmethod
 # In[6]:
 
 class Articles(ABC):
-    def __init__(self, website):
+    def __init__(self):
         # self.website = website
         pass
 
     # @abstractmethod
-    def get_soup(self, url, type = 'get'):
+    def get_request(self, url, type = 'get'):
         if type == 'get':
             r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36"})
         else:
             r = requests.post(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36"})
 
-        try:
-            soup = r.json()
-        except:
-            soup = BeautifulSoup(r.content.decode('utf-8'), 'html.parser')
+        return r
+    
+    def load_data(self, data, table):
+        client = bigquery.Client()
 
-        return soup
+        job_config = bigquery.LoadJobConfig()
+        job_config.write_disposition = bigquery.job.WriteDisposition.WRITE_APPEND
+        # The source format defaults to CSV, so the line below is optional.
+        job_config.source_format = bigquery.SourceFormat.CSV
 
-    def get_medium_soup(self, page):
-        url = 'https://medium.com/_/graphql'
+        project = client.project
+        dataset_id = bigquery.DatasetReference(project, 'articles')
+        table_id = dataset_id.table(table)
 
-        headers = {
-            'origin': 'https://medium.com',
-            'referer': 'https://medium.com/',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-            'ot-tracer-spanid': '24330eb165f5d5c2',
-            'ot-tracer-traceid': '607cd535383d11a6',
-            'cookie': '_ga=GA1.2.1278478269.1631213857; __stripe_mid=db0731a9-e516-4003-a6ea-6659ac3415bc9aaa5a; nonce=hOcPGgoz; uid=846c46eb2386; sid=1:P4kJ8o6RXyMcpcvA/puobZ5mtCr8YT2UBcwSnplSZPOQva97REaYIbAdcE7flokl; lightstep_guid/medium-web=cf772ae8aea36f89; lightstep_session_id=e6fa630d0ba01a87; sz=1903; pr=1; tz=300; __cfruid=cb1a3237d7beb15d4bd4e19fff69fa2977a45875-1677681887; xsrf=715b337343e4; _gid=GA1.2.420747897.1677874872; _dd_s=rum=0&expire=1677878355669'
-        }  
+        job = client.load_table_from_dataframe(data, table_id, job_config=job_config)  # Make an API request.
+        job.result()  # Wait for the job to complete.
 
-        with open('medium_query.txt') as t:
-            query = t.read()
-
-        variables = {"forceRank":False,
-                    "paging":{
-                        "limit":25,
-                        "to": f"{page*25}"
-                    }
-                }
-
-        r = requests.request("POST", url, headers=headers, json={'query': query, "variables": variables})
-
-        soup = r.json()
-
-        return soup
+        print(f'Loaded table {table}')
     
     @abstractmethod
     def get_url(self):
@@ -79,8 +65,16 @@ class StitchFix(Articles):
         # super().__init__("Stitch Fix")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = self.get_pages()
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = int(re.search('Page: 1 of ([0-9]*)',self.soup.select(".page_number")[0].text).group(1))
+
+        return num_pages
 
     def get_url(self):
         if self.page == 1:
@@ -111,8 +105,16 @@ class AnalyticsVidhya(Articles):
         # super().__init__("Analytics Vidhya")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = self.get_pages()
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = int(self.soup.select(".page-numbers")[3].text)
+
+        return num_pages
 
     def get_url(self):
         if self.page >= 1:
@@ -140,8 +142,16 @@ class CleverProgrammer(Articles):
         # super().__init__("Clever Programmer")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = int(self.get_pages())
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = self.soup.select(".page-numbers")[-2].text
+
+        return num_pages
 
     def get_url(self):
         if self.page >= 1:
@@ -169,8 +179,16 @@ class freeCodeCamp(Articles):
         # super().__init__("freeCodeCamp")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = 400
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = re.search('Page: 1 of ([0-9]*)',self.soup.select(".page_number")[0].text).group(1)
+
+        return num_pages
 
     def get_url(self):
         if self.page == 1:
@@ -198,8 +216,16 @@ class RealPython(Articles):
         # super().__init__("Real Python")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = self.r.json()
+        self.num_pages = self.get_pages()
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = math.ceil(self.r.json()['total']/20)
+
+        return num_pages
 
     def get_url(self):
         if self.page >= 1:
@@ -225,8 +251,16 @@ class devto(Articles):
         # super().__init__("dev.to")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url)
+        self.r = super().get_request(self.url)
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = 1000
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = re.search('Page: 1 of ([0-9]*)',self.soup.select(".page_number")[0].text).group(1)
+
+        return num_pages
 
     def get_url(self):
         if self.page >= 1:
@@ -251,8 +285,38 @@ class devto(Articles):
 class Medium(Articles):
     def __init__(self, page):
         # super().__init__("Medium")
-        self.soup = super().get_medium_soup(page)
+        self.soup = self.get_medium_soup(page)
+        self.num_pages = 11
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_medium_soup(self, page):
+        url = 'https://medium.com/_/graphql'
+
+        headers = {
+            'origin': 'https://medium.com',
+            'referer': 'https://medium.com/',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+            'ot-tracer-spanid': '24330eb165f5d5c2',
+            'ot-tracer-traceid': '607cd535383d11a6',
+            'cookie': '_ga=GA1.2.1278478269.1631213857; __stripe_mid=db0731a9-e516-4003-a6ea-6659ac3415bc9aaa5a; nonce=hOcPGgoz; uid=846c46eb2386; sid=1:P4kJ8o6RXyMcpcvA/puobZ5mtCr8YT2UBcwSnplSZPOQva97REaYIbAdcE7flokl; lightstep_guid/medium-web=cf772ae8aea36f89; lightstep_session_id=e6fa630d0ba01a87; sz=1903; pr=1; tz=300; __cfruid=cb1a3237d7beb15d4bd4e19fff69fa2977a45875-1677681887; xsrf=715b337343e4; _gid=GA1.2.420747897.1677874872; _dd_s=rum=0&expire=1677878355669'
+        }  
+
+        with open('medium_query.txt') as t:
+            query = t.read()
+
+        variables = {"forceRank":False,
+                    "paging":{
+                        "limit":25,
+                        "to": f"{page*25}"
+                    }
+                }
+
+        r = requests.request("POST", url, headers=headers, json={'query': query, "variables": variables})
+
+        soup = r.json()
+
+        return soup
 
     def get_url(self):
         if self.page >= 1:
@@ -282,8 +346,16 @@ class DataScienceCentral(Articles):
         # super().__init__("freeCodeCamp")
         self.page = page
         self.url = self.get_url()
-        self.soup = super().get_soup(self.url, 'post')
+        self.r = super().get_request(self.url, 'post')
+        self.soup = BeautifulSoup(self.r.content.decode('utf-8'), 'html.parser')
+        self.num_pages = self.get_pages()
         self.article = self.get_df()
+        # super().load_data(self.article, 'data_articles')
+
+    def get_pages(self):
+        num_pages = 
+
+        return num_pages
 
     def get_url(self):
         if self.page >= 1:
@@ -313,23 +385,5 @@ cp_test = CleverProgrammer(1)
 fcc_test = freeCodeCamp(1)
 rp_test = RealPython(1)
 dt_test = devto(1)
-# %%
+# md_test = Medium(1)
 
-sf_test.article.head()
-
-# %%
-av_test.article.head()
-
-# %%
-cp_test.article.head()
-
-# %%
-fcc_test.article.head()
-
-# %%
-rp_test.article.head()
-
-# %%
-dt_test.article.head()
-
-# %%
