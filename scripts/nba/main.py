@@ -3,15 +3,15 @@
 
 # In[1]:
 
-
-import requests
-import pandas as pd
-import lxml.html as LH
-import json
 from datetime import datetime, date, timedelta
-import time
-from google.cloud import bigquery
 import itertools
+import json
+import time
+
+from google.cloud import bigquery
+import lxml.html as LH
+import pandas as pd
+import requests
 
 # In[2]:
 
@@ -135,17 +135,25 @@ class NBA:
         return games_list
     
     def func_get_games(self):
+        # NBA games URL with date defined in the class
         url = f"https://www.nba.com/games?date={self.GAME_DATE}"
 
+        # headers to be used within the GET request
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0'}
 
+        # Extract text (HTML-like) from the GET request to the URL defined above
         html_content = requests.get(url, headers = headers).text
-        tables = LH.fromstring(html_content)
 
+        # Transform the HTML-like text into a pythonic object
+        tables = LH.fromstring(html_content)
+        
+        # Extract text content from preloaded script element that contains data necessary for page building
         table_json = tables.xpath('//script[@id="__NEXT_DATA__"]')[0].text
         
+        # Translate JSON-like text into a JSON structure
         json_object = json.loads(table_json)
 
+        # Get game IDs from the JSON defined above
         games_list = [card['cardData']['gameId'] for card in json_object['props']['pageProps']['gameCardFeed']['modules'][0]['cards']]
         
         return games_list
@@ -337,6 +345,11 @@ nba = NBA()
 
 nba.GAMES, nba.ARENAS = nba.func_game_set_details()
 
+# %%
+
+nba.GAMES, nba.ARENAS, nba.BS_TRAD, nba.BS_ADV, nba.BS_MISC, nba.BS_SCORE, nba.BS_USAGE, nba.BS_FOUR, nba.BS_TRACK, nba.BS_HUSTLE, nba.BS_MATCH, nba.BS_DEF, nba.PBP = nba.func_run_proc()
+
+nba.func_load_tables()
 
 # %%
 #################################################################
